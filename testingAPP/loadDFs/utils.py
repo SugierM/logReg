@@ -1,37 +1,50 @@
 import os
 from django.conf import settings
+import json
 
-def get_files():
+def get_files() -> list:
     # Returns list of files in temp directory (For each dataframe only main name part)
     files = list(set(os.path.splitext(f)[0] for f in os.listdir(settings.TEMP_DIR)))
     return files
 
 
-def get_unique_filename(dir, file):
+def get_unique_filename(dir, file) -> str:
     # Returns unique file name. If file with given name exists add number to avoid duplicate names
     base, ext = os.path.splitext(file)
+    print(f"File: {file}")
+    print(f"Extension: {ext}")
     counter = 1
     candidate = os.path.join(dir, file)
 
-    while os.path.exists(candidate):
+    while os.path.exists(candidate + ".pkl"): # Maybe not the best idea
         candidate = os.path.join(dir, f"{base}_{counter}{ext}")
         counter += 1
 
     return candidate
 
 
-def get_column_names(filename):
-    with open(filename, 'r', encoding='utf-8') as file:
-        columns = [line.strip() for line in file]
+def get_column_names(path) -> list:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return data["columns"]["all"]
 
-    return columns
 
-
-def perform_save(df, df_path, columns):
+def perform_save(df, df_path) -> None:
     # df_path should be without extensions
     # For Example "New_DataFrame"
     df.to_pickle(df_path + ".pkl")
 
-    with open(f"{df_path}.txt", "w", encoding='utf-8') as f:
-        for col in columns:
-            f.write(col + "\n")
+    column_info = {
+        "columns": {
+            "all": df.columns.tolist(),
+            "type": {
+                "numerical": df.select_dtypes(include=["number"]).columns.tolist(),
+                "categorical": df.select_dtypes(include=["category", "bool"]).columns.tolist(),
+                "date": df.select_dtypes(include=["datetime64[ns]"]).columns.tolist(),
+                "other": df.select_dtypes(exclude=["object"]).columns.tolist()
+            }
+        }
+    }
+
+    with open(f"{df_path}.json", "w", encoding="utf-8") as f:
+        json.dump(column_info, f, indent=4, ensure_ascii=False)

@@ -46,15 +46,9 @@ def load(request):
                 
 
                 # Save to temp
-                safe_path = get_unique_filename(settings.TEMP_DIR, uploaded_filename + ".pkl")
-                df.to_pickle(safe_path)
-                context["saved_pickle"] = safe_path
-                # Save columns names
+                safe_path = get_unique_filename(settings.TEMP_DIR, uploaded_filename)
+                perform_save(df, safe_path)
                 df_columns = df.columns.to_list()
-                safe_path_txt = safe_path.split(".")[0]
-                with open(f"{safe_path_txt}.txt", "w") as f:
-                    for col in df_columns:
-                        f.write(col + "\n")
 
                 # Basic info
                 info = []
@@ -90,8 +84,8 @@ def load(request):
 
 def edit(request):
     context = {}
-    context["excluded_fields"] = ["delete_old", "drops", "new_name"] 
-    hard_form_fields = ["new_name", "drops", "delete_old"] # To exclude hard coded fields from form
+    hard_form_fields = ["new_name", "drops", "delete_old"]
+    context["excluded_fields"] = hard_form_fields # To exclude hard coded fields from form
 
     selected_file = request.POST.get("selected_file")
 
@@ -106,7 +100,7 @@ def edit(request):
                 context["selected_file"] = selected_file
 
                 # przygotuj formularz do edycji kolumn
-                column_file = os.path.join(settings.TEMP_DIR, selected_file + ".txt")
+                column_file = os.path.join(settings.TEMP_DIR, selected_file + ".json")
                 form_actions = EditActionsForm(filename=column_file)
 
                 context["form_files"] = file_form
@@ -115,7 +109,7 @@ def edit(request):
 
         elif action == "edit":
             # Perform actions on file
-            column_file = os.path.join(settings.TEMP_DIR, selected_file + ".txt")
+            column_file = os.path.join(settings.TEMP_DIR, selected_file + ".json")
             form_actions = EditActionsForm(data=request.POST, filename=column_file)
             if form_actions.is_valid():
                 df_route = os.path.join(settings.TEMP_DIR, selected_file + ".pkl")
@@ -148,14 +142,13 @@ def edit(request):
 
                 # Save DataFrame
                 new_name = form_actions.cleaned_data.get("new_name")
-                df_columns = df.columns.to_list()
                 if not new_name:
                     safe_path = get_unique_filename(settings.TEMP_DIR, selected_file + "_edited")
-                    perform_save(df, safe_path, df_columns)
+                    perform_save(df, safe_path)
                 else:
                     safe_path = get_unique_filename(settings.TEMP_DIR, new_name)
-                    perform_save(df, safe_path, df_columns)
-
+                    perform_save(df, safe_path)
+                print(f"Safe path: {safe_path}, df_route: {df_route}")
                 # Delete DataFrame 
                 if form_actions.cleaned_data.get("delete_old"):
                     try:
@@ -175,6 +168,7 @@ def edit(request):
         context["form_files"] = EditChooseForm()
         context["form_actions"] = None
     return render(request, 'edit.html', context)
+
 
 def clear_temp(request):
     for file in os.listdir(settings.TEMP_DIR):
