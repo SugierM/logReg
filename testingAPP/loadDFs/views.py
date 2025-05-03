@@ -141,16 +141,17 @@ def edit(request):
                             return render(request, 'edit.html', context)
 
                 # Save DataFrame
+                delete_df = form_actions.cleaned_data.get("delete_old")
                 new_name = form_actions.cleaned_data.get("new_name")
-                if not new_name:
+                if (not new_name) and (not delete_df):
                     safe_path = get_unique_filename(settings.TEMP_DIR, selected_file + "_edited")
-                    perform_save(df, safe_path)
+                elif (not new_name) and delete_df:
+                    safe_path = os.path.join(settings.TEMP_DIR, selected_file)
                 else:
                     safe_path = get_unique_filename(settings.TEMP_DIR, new_name)
-                    perform_save(df, safe_path)
-                print(f"Safe path: {safe_path}, df_route: {df_route}")
-                # Delete DataFrame 
-                if form_actions.cleaned_data.get("delete_old"):
+
+                # Delete old DataFrame
+                if delete_df:
                     try:
                         os.remove(df_route)
                         print(selected_file)
@@ -158,7 +159,11 @@ def edit(request):
                     except Exception as e:
                         context["error_remove"] = f"There was a problem during deleting file: {e}"
                         return render(request, 'edit.html', context)
+                    
+                # Save new DataFrame
+                perform_save(df, safe_path)
 
+                # Refresh page to update informations
                 return redirect('edit')
 
         context["form_actions"] = form_actions

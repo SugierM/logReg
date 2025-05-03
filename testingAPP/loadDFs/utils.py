@@ -17,7 +17,7 @@ def get_unique_filename(dir, file) -> str:
     candidate = os.path.join(dir, file)
 
     while os.path.exists(candidate + ".pkl"): # Maybe not the best idea
-        candidate = os.path.join(dir, f"{base}_{counter}{ext}")
+        candidate = os.path.join(dir, f"{base}({counter}){ext}")
         counter += 1
 
     return candidate
@@ -41,7 +41,7 @@ def perform_save(df, df_path) -> None:
                 "numerical": df.select_dtypes(include=["number"]).columns.tolist(),
                 "categorical": df.select_dtypes(include=["category", "bool"]).columns.tolist(),
                 "date": df.select_dtypes(include=["datetime64[ns]"]).columns.tolist(),
-                "other": df.select_dtypes(exclude=["object"]).columns.tolist()
+                "other": df.select_dtypes(exclude=["number", "category", "bool", "datetime64[ns]"]).columns.tolist()
             }
         }
     }

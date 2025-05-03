@@ -20,8 +20,10 @@
  <body style="margin-left: 20px;"> <!-- Temporary -->
     <nav>
         <ul>
-            <li><a href="/">Main</a></li>
-            <li><a href="/about/">About</a></li>
+            <li><a href="{% url 'load' %}">Load CSV</a></li>
+            <li><a href="{% url 'edit' %}">Edit</a></li>
+            <li><a href="{% url 'clear' %}">Clear</a></li>
+            <li><a href="{% url 'standard' %}">Std. Report</a></li>
         </ul>
     </nav>
 
