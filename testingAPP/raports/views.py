@@ -2,11 +2,15 @@ from django.shortcuts import render
 import pandas as pd
 import os
 from django.conf import settings
-from .utils import get_files
+from .utils import get_files, calculate_WOE
 from .forms import StandardReportForm
 import json
 from scipy.stats import shapiro, kstest, anderson, norm
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+import shutil
 import warnings
 
 # I know they are here
@@ -38,7 +42,6 @@ def standard_raport(request):
             meta_path = os.path.join(settings.TEMP_DIR, file_name + ".json")
             with open(meta_path, "r", encoding="utf-8") as f:
                 meta_data = json.load(f)
-            meta_data = meta_data["columns"]
 
 ############# General informations
             for col in df:
@@ -59,129 +62,14 @@ def standard_raport(request):
                     "type": series_type,
                 })
                 
-        ##### For all cols
-            woe_summary = {
-                "numerical": [],
-                "categorical": [],
-                "other": []
-            }
-
-            target_series = df["DEFAULT_FLAG"] # CHANGE
-
-            # ---------------- Numerical ----------------
-            for col in meta_data["type"]["numerical"]:
-                series = df[col].dropna()
-
-                min_val = series.min()
-                max_val = series.max()
-
-                # Bin starts at 0
-                if min_val < 0:
-                    shift = abs(min_val)
-                elif min_val > 0:
-                    shift = -min_val
-                else:
-                    shift = 0
-
-                shifted = series + shift
-                try:
-                    bins = pd.qcut(shifted, q=7, duplicates='drop')
-                except ValueError:
-                    continue 
-
-                temp_df = pd.DataFrame({
-                    "bin": bins,
-                    "target": target_series.loc[series.index]
-                })
-
-                grouped = temp_df.groupby("bin")["target"].agg(["count", "sum"]).copy()
-                grouped.columns = ['total', 'bad']
-                grouped['good'] = grouped['total'] - grouped['bad']
-
-                total_good = grouped['good'].sum()
-                total_bad = grouped['bad'].sum()
-                if total_good == 0 or total_bad == 0:
-                    continue
-
-                grouped['%good'] = grouped['good'] / total_good
-                grouped['%bad'] = grouped['bad'] / total_bad
-                grouped['woe'] = np.log(grouped['%good'] / grouped['%bad']).replace([np.inf, -np.inf], 0)
-                grouped['iv'] = (grouped['%good'] - grouped['%bad']) * grouped['woe']
-
-                for idx, row in grouped.iterrows():
-                    left = round(idx.left - shift, 3)
-                    right = round(idx.right - shift, 3)
-                    bin_name = f"{left} - {right}"
-                    woe_summary["numerical"].append({
-                        "name": bin_name,
-                        "woe": float(round(row['woe'], 4)),
-                        "IV": float(round(row['iv'], 6)),
-                        "shift": shift
-                    })
-
-            # ---------------- Categorical ----------------
-            for col in meta_data["type"]["categorical"]:
-                series = df[col].dropna()
-                temp_df = pd.DataFrame({
-                    "cat": series,
-                    "target": target_series.loc[series.index]
-                })
-
-                grouped = temp_df.groupby("cat")["target"].agg(["count", "sum"]).copy()
-                grouped.columns = ['total', 'bad']
-                grouped['good'] = grouped['total'] - grouped['bad']
-
-                total_good = grouped['good'].sum()
-                total_bad = grouped['bad'].sum()
-                if total_good == 0 or total_bad == 0:
-                    continue
-
-                grouped['%good'] = grouped['good'] / total_good
-                grouped['%bad'] = grouped['bad'] / total_bad
-                grouped['woe'] = np.log(grouped['%good'] / grouped['%bad']).replace([np.inf, -np.inf], 0)
-                grouped['iv'] = (grouped['%good'] - grouped['%bad']) * grouped['woe']
-
-                for idx, row in grouped.iterrows():
-                    woe_summary["categorical"].append({
-                        "name": str(idx),
-                        "woe": float(round(row['woe'], 4)),
-                        "IV": float(round(row['iv'], 6))
-                    })
-
-            # ---------------- Other ----------------
-            for col in meta_data["type"]["other"]:
-                series = df[col].dropna()
-                temp_df = pd.DataFrame({
-                    "cat": series,
-                    "target": target_series.loc[series.index]
-                })
-
-                grouped = temp_df.groupby("cat")["target"].agg(["count", "sum"]).copy()
-                grouped.columns = ['total', 'bad']
-                grouped['good'] = grouped['total'] - grouped['bad']
-
-                total_good = grouped['good'].sum()
-                total_bad = grouped['bad'].sum()
-                if total_good == 0 or total_bad == 0:
-                    continue
-
-                grouped['%good'] = grouped['good'] / total_good
-                grouped['%bad'] = grouped['bad'] / total_bad
-                grouped['woe'] = np.log(grouped['%good'] / grouped['%bad']).replace([np.inf, -np.inf], 0)
-                grouped['iv'] = (grouped['%good'] - grouped['%bad']) * grouped['woe']
-
-                for idx, row in grouped.iterrows():
-                    woe_summary["other"].append({
-                        "name": str(idx),
-                        "woe": float(round(row['woe'], 4)),
-                        "IV": float(round(row['iv'], 6))
-                    })
+        ##### For mixed cols
+            woe_summary = calculate_WOE(df, meta_data)
 
             context["all_columns"] = {}
             context["all_columns"]["woe"] = woe_summary
 
 ############# Numerical cols
-            numerical_cols = meta_data["type"]["numerical"]
+            numerical_cols = meta_data["columns"]["type"]["numerical"]
             for col in numerical_cols:
                 series: pd.Series = df[col]
                 # IQR
@@ -280,7 +168,38 @@ def standard_raport(request):
                         }
                     }
                 })
+        ##### Images 
+            images_dir = settings.IMAGES_DIR
+            os.makedirs(images_dir, exist_ok=True)
+            numerical_images_path = os.path.join(images_dir, "numerical")
+            histogram_path = os.path.join(numerical_images_path, "histogram")
+            os.makedirs(histogram_path, exist_ok=True)
 
+            # Histogram
+            n_cols = 3
+            figsize = (5 * n_cols, 4) # 5X4
+
+            for i in range(0, len(numerical_cols), n_cols):
+                cols_batch = numerical_cols[i:i + n_cols]
+                n = len(cols_batch)
+                fig, axes = plt.subplots(1, n_cols, figsize=figsize)
+
+                for j in range(n_cols):
+                    if j < n:
+                        col = cols_batch[j]
+                        ax = axes[j]
+                        df[col].plot.hist(ax=ax, bins=30, edgecolor='black')
+                        ax.set_title(col)
+                    else:
+                        axes[j].axis('off')
+
+                plt.tight_layout()
+                filename = os.path.join(histogram_path, f"{i//n_cols + 1}.png")
+                plt.savefig(filename)
+                plt.close()
+
+                # if os.path.exists(folder_path): # Delete after using not now
+                #     shutil.rmtree(folder_path)
 ############# Categorical cols
 
 

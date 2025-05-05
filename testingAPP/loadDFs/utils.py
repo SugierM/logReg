@@ -29,12 +29,14 @@ def get_column_names(path) -> list:
     return data["columns"]["all"]
 
 
-def perform_save(df, df_path) -> None:
-    # df_path should be without extensions
-    # For Example "New_DataFrame"
+def perform_save(df, df_path:str, additional_info:dict=None) -> None:
+    """
+    df_path should be without extensions
+    For Example "New_DataFrame"
+    """
     df.to_pickle(df_path + ".pkl")
-
-    column_info = {
+    
+    meta_data = {
         "columns": {
             "all": df.columns.tolist(),
             "type": {
@@ -46,5 +48,9 @@ def perform_save(df, df_path) -> None:
         }
     }
 
+    if additional_info:
+        meta_data |= additional_info
+
     with open(f"{df_path}.json", "w", encoding="utf-8") as f:
-        json.dump(column_info, f, indent=4, ensure_ascii=False)
+        json.dump(meta_data, f, indent=4, ensure_ascii=False)
+

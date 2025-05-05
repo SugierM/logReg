@@ -19,7 +19,11 @@
 <form method="post" enctype="multipart/form-data" onsubmit="showLoading()">
     {% csrf_token %}
     <input type="hidden" name="selected_file" value="{{ selected_file }}">
-    New file name: {{ form_actions.new_name}}
+
+    New file name: {{ form_actions.new_name}} <br>
+    <strong>Choose target column (REQUIRED FIELD)</strong>
+
+    {{ form_actions.target }}
     <details>
         <summary><strong>Delete columns</strong></summary>
         {{ form_actions.drops }}

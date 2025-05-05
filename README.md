@@ -7,5 +7,5 @@ This project is an attempt to make logistic regression models with as little cod
 - `/clear` – removes all files from the temp folder (clears the working directory)
 
 
-# With edit from 03.05.2025
-std_report doesn't work as intended but i need to save progress quickly
+# With edit from 05.05.2025
+There is currently no implemented method to clear the images folder, as the report functionality is not fully developed yet. (But images will overwrite themselves automatically).

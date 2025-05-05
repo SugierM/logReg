@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from .forms import UploadFileForm, EditActionsForm, EditChooseForm
+from .forms import UploadFileForm, EditActionsForm, EditChooseForm, EXCLUDED_FIELDS
 import pandas as pd
 import os
 from django.conf import settings
@@ -84,7 +84,7 @@ def load(request):
 
 def edit(request):
     context = {}
-    hard_form_fields = ["new_name", "drops", "delete_old"]
+    hard_form_fields = EXCLUDED_FIELDS
     context["excluded_fields"] = hard_form_fields # To exclude hard coded fields from form
 
     selected_file = request.POST.get("selected_file")
@@ -99,7 +99,7 @@ def edit(request):
                 selected_file = file_form.cleaned_data["files"] or selected_file
                 context["selected_file"] = selected_file
 
-                # przygotuj formularz do edycji kolumn
+                # Edit form
                 column_file = os.path.join(settings.TEMP_DIR, selected_file + ".json")
                 form_actions = EditActionsForm(filename=column_file)
 
@@ -160,8 +160,13 @@ def edit(request):
                         context["error_remove"] = f"There was a problem during deleting file: {e}"
                         return render(request, 'edit.html', context)
                     
+                # Add informations to meta data
+                additional_info = {}
+                target = form_actions.cleaned_data["target"]
+                additional_info["target"] = target
+
                 # Save new DataFrame
-                perform_save(df, safe_path)
+                perform_save(df, safe_path, additional_info)
 
                 # Refresh page to update informations
                 return redirect('edit')

@@ -28,6 +28,9 @@ class EditChooseForm(forms.Form):
 
 
 class EditActionsForm(forms.Form):
+    """
+    Remember to update list on the bottom of this file
+    """
     new_name = forms.CharField(initial=None, required=False, max_length=100)
     drops = forms.MultipleChoiceField(
         choices=[],
@@ -35,9 +38,8 @@ class EditActionsForm(forms.Form):
         required=False,
         label="Choose columns to drop"
     )
-
+    target = forms.ChoiceField(choices=[], label="Choose target column", required=True)
     delete_old = forms.BooleanField(initial=False, required=False, widget=forms.CheckboxInput)
-
 
     TYPES = [
         ('', 'Do not change'),
@@ -53,6 +55,7 @@ class EditActionsForm(forms.Form):
         super().__init__(*args, **kwawrgs)
         if filename:
             columns = [(c, c) for c in get_column_names(filename)]
+            self.fields["target"].choices = columns
             # Drops
             self.fields["drops"].choices = columns
             
@@ -66,4 +69,4 @@ class EditActionsForm(forms.Form):
                 )
             
 
-
+EXCLUDED_FIELDS = ["new_name", "drops", "delete_old", "target"]
