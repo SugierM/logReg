@@ -1,0 +1,47 @@
+{% extends 'basic.html' %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block title %}Standard Report{% endblock %}
+{% block content %}
+<h3>Warning</h3>
+Having the correct column types is important — you can edit them <a href="{% url 'edit' %}">here</a>.
+<form method="post" enctype="multipart/form-data" onsubmit="showLoading()">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Generate</button>
+</form>
+<table class="table table-striped">
+    <thead>
+        <th scope="col">Column name</th>
+        <th scope="col">Count</th>
+        <th scope="col">Zero counts</th>
+        <th scope="col">Missing counts</th>
+        <th scope="col">Missing %</th>
+        <th scope="col">Unique val. count</th>
+        <th scope="col">Data type</th>
+    </thead>
+
+    <tbody>
+        {% for col in std_info %}
+        <tr>
+            <td>{{col.name}}</td>
+            <td>{{col.counts}}</td>
+            <td>{{col.zeros}}</td>
+            <td>{{col.missing}}</td>
+            <td>{{col.missing_per}}%</td>
+            <td>{{col.unique}}</td>
+            <td>{{col.type}}</td>
+            <td>{{col.pos_numeric}}</td>
+            <td>{{col.new_type}}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{{numerical_info}}
+<hr>
+{{all_columns}}
+{% endblock %}

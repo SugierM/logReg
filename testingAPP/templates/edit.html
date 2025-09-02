@@ -1,0 +1,48 @@
+{% extends 'basic.html' %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block title %}Edit CSV{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" onsubmit="showLoading()">
+    {% csrf_token %}
+    {{ form_files.as_p }}
+    <button type="submit" name="action" value="choose">Edit</button>
+</form>
+{{ error_conversion }}
+<br>
+<h3>Currently Editing: {{ selected_file }} </h3>
+<br>
+{% if form_actions %}
+<form method="post" enctype="multipart/form-data" onsubmit="showLoading()">
+    {% csrf_token %}
+    <input type="hidden" name="selected_file" value="{{ selected_file }}">
+
+    New file name: {{ form_actions.new_name}} <br>
+    <strong>Choose target column (REQUIRED FIELD)</strong>
+
+    {{ form_actions.target }}
+    <details>
+        <summary><strong>Delete columns</strong></summary>
+        {{ form_actions.drops }}
+    </details>
+    <br>
+    <details>
+        <summary><strong>Change Type</strong></summary>
+        {% for field in form_actions %}
+            {% if field.name not in excluded_fields %}
+                {{ field.label_tag }} {{ field }} <br>
+            {% endif %}
+        {% endfor %}
+    </details>
+
+
+    {{ form_actions.delete_old}} Delete old file? <br>
+
+    <button type="submit" name="action" value="edit">Confirm</button>
+</form>
+{% endif %}
+
+{% endblock %}
